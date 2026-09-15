@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS rate_limits;
+DROP TABLE IF EXISTS wg_peers;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS servers;
+DROP TABLE IF EXISTS users;

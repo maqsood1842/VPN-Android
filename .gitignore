@@ -1,0 +1,39 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+/bin/
+/vendor/
+*.exe
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+build/
+.gradle/
+local.properties
+*.jks
+*.keystore
+*.orig
+*.log
+
+# Docker
+docker-compose.override.yml
