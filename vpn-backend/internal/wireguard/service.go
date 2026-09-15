@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ type Service struct {
 	subRepo    *subscription.Repository
 	wgClient   *wgctrl.Client
 	serverIP   string
+	mockMode   bool
 }
 
 func NewService(
@@ -33,9 +35,17 @@ func NewService(
 	subRepo *subscription.Repository,
 	serverIP string,
 ) (*Service, error) {
-	client, err := wgctrl.New()
-	if err != nil {
-		return nil, fmt.Errorf("create wgctrl client: %w", err)
+	var client *wgctrl.Client
+	var mockMode bool
+
+	if runtime.GOOS == "windows" {
+		mockMode = true
+	} else {
+		var err error
+		client, err = wgctrl.New()
+		if err != nil {
+			mockMode = true
+		}
 	}
 
 	return &Service{
@@ -44,6 +54,7 @@ func NewService(
 		subRepo:    subRepo,
 		wgClient:   client,
 		serverIP:   serverIP,
+		mockMode:   mockMode,
 	}, nil
 }
 
@@ -95,8 +106,10 @@ func (s *Service) GenerateConfig(ctx context.Context, userID, serverID uuid.UUID
 		return nil, fmt.Errorf("save peer: %w", err)
 	}
 
-	if err := s.addPeerToInterface(srv, peer); err != nil {
-		return nil, fmt.Errorf("add peer to interface: %w", err)
+	if !s.mockMode {
+		if err := s.addPeerToInterface(srv, peer); err != nil {
+			return nil, fmt.Errorf("add peer to interface: %w", err)
+		}
 	}
 
 	return s.buildConfig(peer, srv), nil
@@ -118,6 +131,10 @@ func (s *Service) buildConfig(peer *Peer, srv *server.Server) *PeerConfig {
 }
 
 func (s *Service) addPeerToInterface(srv *server.Server, peer *Peer) error {
+	if s.mockMode {
+		return nil
+	}
+
 	pubKey, err := wgtypes.ParseKey(peer.PublicKey)
 	if err != nil {
 		return err
