@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,10 +18,16 @@ import (
 	"github.com/vpn/backend/pkg/config"
 	"github.com/vpn/backend/pkg/db"
 	"github.com/vpn/backend/pkg/jwt"
+	"github.com/vpn/backend/pkg/logging"
+	"github.com/vpn/backend/pkg/ratelimit"
 	"github.com/vpn/backend/pkg/redis"
 )
 
 func main() {
+	// Initialize privacy-compliant logger
+	logging.Init(logging.LevelInfo)
+	logger := logging.Get()
+
 	cfg := config.Load()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -30,17 +35,21 @@ func main() {
 
 	database, err := db.New(ctx, &cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Error("Failed to connect to database", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 	defer database.Close()
 
 	redisClient, err := redis.New(&cfg.Redis)
 	if err != nil {
-		log.Printf("Warning: Redis not available: %v", err)
+		logger.Warn("Redis not available", map[string]interface{}{"error": err.Error()})
 	} else {
-		log.Println("Redis connected")
+		logger.Info("Redis connected", nil)
 		defer redisClient.Close()
 	}
+
+	// Initialize rate limiter
+	rateLimiter := ratelimit.NewRateLimiter(redisClient)
 
 	userRepo := user.NewRepository(database.Pool)
 	serverRepo := server.NewRepository(database.Pool, redisClient)
@@ -50,16 +59,16 @@ func main() {
 	authService := auth.NewService(userRepo, &cfg.JWT)
 	wgService, err := wireguard.NewService(peerRepo, serverRepo, subRepo, cfg.Database.Host)
 	if err != nil {
-		log.Printf("Warning: WireGuard service not available (requires root/CAP_NET_ADMIN): %v", err)
+		logger.Warn("WireGuard service not available", map[string]interface{}{"error": err.Error()})
 	}
 
 	// Billing service (Google Play validation)
 	billingConfig := billing.LoadConfigFromEnv()
-	billingService := billing.NewService(nil, subRepo) // validator will be nil without credentials
+	billingService := billing.NewService(nil, subRepo)
 	if billingConfig.CredentialsJSON != "" {
 		validator, err := billing.NewGooglePlayValidator(ctx, billingConfig.CredentialsJSON, billingConfig.PackageName, billingConfig.ProductID)
 		if err != nil {
-			log.Printf("Warning: Google Play validator not available: %v", err)
+			logger.Warn("Google Play validator not available", map[string]interface{}{"error": err.Error()})
 		} else {
 			billingService = billing.NewService(validator, subRepo)
 		}
@@ -68,7 +77,7 @@ func main() {
 	// Start health checker
 	healthChecker, err := server.NewHealthChecker(serverRepo, 30*time.Second)
 	if err != nil {
-		log.Printf("Warning: Health checker not available: %v", err)
+		logger.Warn("Health checker not available", map[string]interface{}{"error": err.Error()})
 	} else {
 		go healthChecker.Start(ctx)
 		defer healthChecker.Stop()
@@ -77,6 +86,22 @@ func main() {
 	r := gin.Default()
 	r.Use(gin.Recovery())
 
+	// Add request logging middleware (privacy-compliant)
+	r.Use(func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		method := c.Request.Method
+
+		c.Next()
+
+		logger.Info("http_request", map[string]interface{}{
+			"method":      method,
+			"path":        path,
+			"status":      c.Writer.Status(),
+			"latency_ms":  time.Since(start).Milliseconds(),
+		})
+	})
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -84,19 +109,40 @@ func main() {
 	api := r.Group("/api/v1")
 	{
 		authHandler := auth.NewHandler(authService)
-		authHandler.RegisterRoutes(api)
+
+		// Apply rate limiting to auth endpoints
+		auth := api.Group("/auth")
+		auth.Use(rateLimiter.Middleware("auth:signup"))
+		auth.POST("/signup", authHandler.Signup)
+
+		authLogin := api.Group("/auth")
+		authLogin.Use(rateLimiter.Middleware("auth:login"))
+		authLogin.POST("/login", authHandler.Login)
+
+		authRefresh := api.Group("/auth")
+		authRefresh.Use(rateLimiter.Middleware("auth:refresh"))
+		authRefresh.POST("/refresh", authHandler.Refresh)
 
 		protected := api.Group("")
 		protected.Use(authMiddleware(&cfg.JWT))
 		{
+			// Rate limit wireguard config endpoint
+			wg := protected.Group("/wireguard")
+			wg.Use(rateLimiter.Middleware("wireguard:config"))
 			wgHandler := wireguard.NewHandler(wgService)
-			wgHandler.RegisterRoutes(protected)
+			wgHandler.RegisterRoutes(wg)
 
+			// Rate limit servers endpoint
+			servers := protected.Group("/servers")
+			servers.Use(rateLimiter.Middleware("servers:list"))
 			serverHandler := server.NewHandler(serverRepo, healthChecker)
-			serverHandler.RegisterRoutes(protected)
+			serverHandler.RegisterRoutes(servers)
 
+			// Rate limit billing endpoints
+			billingGroup := protected.Group("/billing")
+			billingGroup.Use(rateLimiter.Middleware("billing:validate"))
 			billingHandler := billing.NewHandler(billingService, &cfg.JWT)
-			billingHandler.RegisterRoutes(protected)
+			billingHandler.RegisterRoutes(billingGroup)
 		}
 	}
 
@@ -108,9 +154,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Starting server on port %s", cfg.Server.Port)
+		logger.Info("Starting server", map[string]interface{}{"port": cfg.Server.Port})
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			logger.Error("Server error", map[string]interface{}{"error": err.Error()})
+			os.Exit(1)
 		}
 	}()
 
@@ -118,15 +165,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server", nil)
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
 	}
 
-	log.Println("Server exited")
+	logger.Info("Server exited", nil)
 }
 
 func authMiddleware(cfg *jwt.Config) gin.HandlerFunc {

@@ -25,6 +25,22 @@ class HomeViewModel @Inject constructor(
     var selectedServer: Server? = null
         private set
 
+    init {
+        vpnService.setConnectionCallback(object : VpnConnectionService.ConnectionCallback {
+            override fun onConnected() {
+                _connectionState.value = ConnectionState.Connected(selectedServer?.name ?: "VPN")
+            }
+
+            override fun onDisconnected() {
+                _connectionState.value = ConnectionState.Disconnected
+            }
+
+            override fun onError(error: String) {
+                _connectionState.value = ConnectionState.Error(error)
+            }
+        })
+    }
+
     fun connect() {
         selectedServer?.let { server ->
             viewModelScope.launch {
@@ -32,12 +48,6 @@ class HomeViewModel @Inject constructor(
                 val result = wireGuardRepository.getConfig(server.id)
                 result.onSuccess { config ->
                     vpnService.connect(config)
-                        .onSuccess {
-                            _connectionState.value = ConnectionState.Connected(server.name)
-                        }
-                        .onFailure { error ->
-                            _connectionState.value = ConnectionState.Error(error.message ?: "Connection failed")
-                        }
                 }.onFailure { error ->
                     _connectionState.value = ConnectionState.Error(error.message ?: "Failed to get config")
                 }
@@ -48,7 +58,6 @@ class HomeViewModel @Inject constructor(
     fun disconnect() {
         viewModelScope.launch {
             vpnService.disconnect()
-            _connectionState.value = ConnectionState.Disconnected
         }
     }
 
@@ -56,4 +65,17 @@ class HomeViewModel @Inject constructor(
         selectedServer = server
         _connectionState.value = ConnectionState.Disconnected
     }
+
+    fun setKillSwitchEnabled(enabled: Boolean) {
+        vpnService.setKillSwitchEnabled(enabled)
+    }
+
+    fun isKillSwitchEnabled(): Boolean = vpnService.isKillSwitchEnabled()
+}
+
+sealed interface ConnectionState {
+    data class Connected(val serverName: String) : ConnectionState
+    object Connecting : ConnectionState
+    object Disconnected : ConnectionState
+    data class Error(val message: String) : ConnectionState
 }
