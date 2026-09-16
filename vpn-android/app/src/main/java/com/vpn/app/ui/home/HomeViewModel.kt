@@ -1,13 +1,14 @@
 package com.vpn.app.ui.home
 
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.vpn.core.data.Models.Server
 import com.vpn.core.network.WireGuardRepository
 import com.vpn.core.vpn.VpnConnectionService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,7 +20,7 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
-    val connectionState = _connectionState.asStateFlow()
+    val connectionState: LiveData<ConnectionState> = _connectionState.asLiveData(viewModelScope.coroutineContext)
 
     var selectedServer: Server? = null
         private set

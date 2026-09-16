@@ -60,6 +60,10 @@ class AuthRepository @Inject constructor(
         return token?.let { "Bearer $it" }
     }
 
+    fun getUserEmail(): String? = tokenStore.getUserEmail()
+
+    fun getUserId(): String? = tokenStore.getUserId()
+
     fun isLoggedIn(): Boolean = tokenStore.hasValidTokens()
 
     fun logout() {

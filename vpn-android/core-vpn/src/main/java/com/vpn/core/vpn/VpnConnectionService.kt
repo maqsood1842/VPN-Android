@@ -12,6 +12,7 @@ import com.wireguard.config.Config
 import com.wireguard.config.InterfaceConfig
 import com.wireguard.config.PeerConfig
 import com.wireguard.config.PeerConfig.Builder as PeerConfigBuilder
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,62 +28,81 @@ class VpnConnectionService @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
     private var isConnected = false
 
-    suspend fun connect(peerConfig: com.vpn.core.data.Models.PeerConfig): Result<Unit> = scope.launch {
-        try {
-            if (isConnected) {
-                disconnect()
+    suspend fun connect(peerConfig: com.vpn.core.data.Models.PeerConfig): Result<Unit> {
+        val deferred = CompletableDeferred<Result<Unit>>()
+        scope.launch {
+            try {
+                if (isConnected) {
+                    disconnect()
+                }
+
+                goBackend = GoBackend(context)
+
+                val builder = VpnService.Builder()
+                    .setSession("VPN Tunnel")
+                    .setMtu(1420)
+                    .addAddress("10.0.0.2", 32)
+                    .addAddress("fd00::2", 128)
+                    .addDnsServer("1.1.1.1")
+                    .addDnsServer("1.0.0.1")
+                    .addRoute("0.0.0.0", 0)
+                    .addRoute("::", 0)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    builder.setBlocking(true)
+                }
+
+                val intent = Intent(context, VpnService::class.java)
+                val pendingIntent = PendingIntent.getActivity(
+                    context, 0, intent, PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.setConfigureIntent(pendingIntent)
+
+                vpnInterface = builder.establish()
+
+                if (vpnInterface == null) {
+                    deferred.complete(Result.failure(Exception("Failed to establish VPN interface")))
+                    return@launch
+                }
+
+                val tunnelConfig = buildTunnelConfig(peerConfig)
+                
+                goBackend?.createTunnel(tunnelConfig, object : GoBackend.Callback {
+                    override fun onTunnelCreated() {
+                        isConnected = true
+                        deferred.complete(Result.success(Unit))
+                    }
+
+                    override fun onError(error: String) {
+                        Log.e("VpnConnectionService", "Tunnel creation failed: $error")
+                        cleanup()
+                        deferred.complete(Result.failure(Exception(error)))
+                    }
+                })
+            } catch (e: Exception) {
+                Log.e("VpnConnectionService", "Connect failed", e)
+                cleanup()
+                deferred.complete(Result.failure(e))
             }
-
-            goBackend = GoBackend(context)
-
-            val builder = VpnService.Builder()
-                .setSession("VPN Tunnel")
-                .setMtu(1420)
-                .addAddress("10.0.0.2", 32)
-                .addAddress("fd00::2", 128)
-                .addDnsServer("1.1.1.1")
-                .addDnsServer("1.0.0.1")
-                .addRoute("0.0.0.0", 0)
-                .addRoute("::", 0)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                builder.setBlocking(true)
-            }
-
-            val intent = Intent(context, VpnService::class.java)
-            val pendingIntent = PendingIntent.getActivity(
-                context, 0, intent, PendingIntent.FLAG_IMMUTABLE
-            )
-            builder.setConfigureIntent(pendingIntent)
-
-            vpnInterface = builder.establish()
-
-            if (vpnInterface == null) {
-                return@launch Result.failure(Exception("Failed to establish VPN interface"))
-            }
-
-            val tunnelConfig = buildTunnelConfig(peerConfig)
-            goBackend?.createTunnel(tunnelConfig)
-
-            isConnected = true
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("VpnConnectionService", "Connect failed", e)
-            Result.failure(e)
         }
+        return deferred.await()
     }
 
     fun disconnect() {
         scope.launch {
-            try {
-                goBackend?.close()
-                vpnInterface?.close()
-                vpnInterface = null
-                goBackend = null
-                isConnected = false
-            } catch (e: Exception) {
-                Log.e("VpnConnectionService", "Disconnect failed", e)
-            }
+            cleanup()
+        }
+    }
+
+    private fun cleanup() {
+        try {
+            goBackend?.close()
+            vpnInterface?.close()
+            vpnInterface = null
+            goBackend = null
+            isConnected = false
+        } catch (e: Exception) {
+            Log.e("VpnConnectionService", "Disconnect failed", e)
         }
     }
 
