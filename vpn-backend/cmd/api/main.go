@@ -16,8 +16,9 @@ import (
 	"github.com/vpn/backend/internal/user"
 	"github.com/vpn/backend/internal/wireguard"
 	"github.com/vpn/backend/pkg/config"
-	"github.com/vpn/backend/pkg/jwt"
 	"github.com/vpn/backend/pkg/db"
+	"github.com/vpn/backend/pkg/jwt"
+	"github.com/vpn/backend/pkg/redis"
 )
 
 func main() {
@@ -32,8 +33,16 @@ func main() {
 	}
 	defer database.Close()
 
+	redisClient, err := redis.New(&cfg.Redis)
+	if err != nil {
+		log.Printf("Warning: Redis not available: %v", err)
+	} else {
+		log.Println("Redis connected")
+		defer redisClient.Close()
+	}
+
 	userRepo := user.NewRepository(database.Pool)
-	serverRepo := server.NewRepository(database.Pool)
+	serverRepo := server.NewRepository(database.Pool, redisClient)
 	subRepo := subscription.NewRepository(database.Pool)
 	peerRepo := wireguard.NewRepository(database.Pool)
 
@@ -41,6 +50,15 @@ func main() {
 	wgService, err := wireguard.NewService(peerRepo, serverRepo, subRepo, cfg.Database.Host)
 	if err != nil {
 		log.Printf("Warning: WireGuard service not available (requires root/CAP_NET_ADMIN): %v", err)
+	}
+
+	// Start health checker
+	healthChecker, err := server.NewHealthChecker(serverRepo, 30*time.Second)
+	if err != nil {
+		log.Printf("Warning: Health checker not available: %v", err)
+	} else {
+		go healthChecker.Start(ctx)
+		defer healthChecker.Stop()
 	}
 
 	r := gin.Default()
@@ -61,7 +79,7 @@ func main() {
 			wgHandler := wireguard.NewHandler(wgService)
 			wgHandler.RegisterRoutes(protected)
 
-			serverHandler := server.NewHandler(serverRepo)
+			serverHandler := server.NewHandler(serverRepo, healthChecker)
 			serverHandler.RegisterRoutes(protected)
 		}
 	}

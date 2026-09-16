@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,6 +39,13 @@ type PeerConfig struct {
 		Endpoint            string
 		PersistentKeepalive int
 	}
+}
+
+type PeerStats struct {
+	PeerCount       int       `json:"peer_count"`
+	TotalBytesRx    int64     `json:"total_bytes_rx"`
+	TotalBytesTx    int64     `json:"total_bytes_tx"`
+	LatestHandshake time.Time `json:"latest_handshake"`
 }
 
 type PeerRepository interface {
