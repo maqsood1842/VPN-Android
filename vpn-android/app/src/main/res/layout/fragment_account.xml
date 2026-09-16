@@ -30,18 +30,18 @@
         android:layout_marginTop="16dp" />
 
     <Button
-        android:id="@+id/logout_button"
+        android:id="@+id/subscribe_button"
         android:layout_width="0dp"
         android:layout_height="56dp"
-        android:text="Logout"
+        android:text="Subscribe - $4.99/month"
         android:textSize="18sp"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/manage_subscription_button"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="40dp"
+        android:layout_marginBottom="16dp"
         android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp" />
+        android:layout_marginEnd="24dp"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/manage_subscription_button"
@@ -53,6 +53,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginBottom="16dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/logout_button"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:text="Logout"
+        android:textSize="18sp"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="40dp"
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp" />
 

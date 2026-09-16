@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vpn/backend/internal/auth"
+	"github.com/vpn/backend/internal/billing"
 	"github.com/vpn/backend/internal/server"
 	"github.com/vpn/backend/internal/subscription"
 	"github.com/vpn/backend/internal/user"
@@ -52,6 +53,18 @@ func main() {
 		log.Printf("Warning: WireGuard service not available (requires root/CAP_NET_ADMIN): %v", err)
 	}
 
+	// Billing service (Google Play validation)
+	billingConfig := billing.LoadConfigFromEnv()
+	billingService := billing.NewService(nil, subRepo) // validator will be nil without credentials
+	if billingConfig.CredentialsJSON != "" {
+		validator, err := billing.NewGooglePlayValidator(ctx, billingConfig.CredentialsJSON, billingConfig.PackageName, billingConfig.ProductID)
+		if err != nil {
+			log.Printf("Warning: Google Play validator not available: %v", err)
+		} else {
+			billingService = billing.NewService(validator, subRepo)
+		}
+	}
+
 	// Start health checker
 	healthChecker, err := server.NewHealthChecker(serverRepo, 30*time.Second)
 	if err != nil {
@@ -81,6 +94,9 @@ func main() {
 
 			serverHandler := server.NewHandler(serverRepo, healthChecker)
 			serverHandler.RegisterRoutes(protected)
+
+			billingHandler := billing.NewHandler(billingService, &cfg.JWT)
+			billingHandler.RegisterRoutes(protected)
 		}
 	}
 

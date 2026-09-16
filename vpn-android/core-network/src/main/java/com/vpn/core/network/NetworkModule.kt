@@ -26,4 +26,10 @@ object NetworkModule {
     fun provideWireGuardRepository(apiClient: ApiClient, authRepository: AuthRepository): WireGuardRepository {
         return WireGuardRepository(apiClient, authRepository)
     }
+
+    @Provides
+    @Singleton
+    fun provideBillingService(@dagger.hilt.android.qualifiers.ApplicationContext context: Context): BillingService {
+        return BillingService(context)
+    }
 }
