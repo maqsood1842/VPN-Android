@@ -30,7 +30,6 @@ func main() {
 
 	// Generate a test WireGuard key pair for the server
 	// In production, this would be pre-generated and stored securely
-	privateKey := "yAnz5TF+lXXJte14tji9zl2myNe47S+40sRLO9UMDyc="
 	publicKey := "xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg="
 
 	query := `

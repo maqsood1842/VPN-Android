@@ -15,8 +15,8 @@ import (
 	"github.com/vpn/backend/internal/subscription"
 	"github.com/vpn/backend/internal/user"
 	"github.com/vpn/backend/internal/wireguard"
+	"github.com/vpn/backend/internal/db"
 	"github.com/vpn/backend/pkg/config"
-	"github.com/vpn/backend/pkg/db"
 	"github.com/vpn/backend/pkg/jwt"
 	"github.com/vpn/backend/pkg/logging"
 	"github.com/vpn/backend/pkg/ratelimit"
@@ -177,7 +177,7 @@ func main() {
 	logger.Info("Server exited", nil)
 }
 
-func authMiddleware(cfg *jwt.Config) gin.HandlerFunc {
+func authMiddleware(cfg *config.JWTConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		tokenString, err := jwt.ExtractTokenFromHeader(authHeader)

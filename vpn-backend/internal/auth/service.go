@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vpn/backend/internal/user"
+	"github.com/vpn/backend/pkg/config"
 	"github.com/vpn/backend/pkg/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,10 +20,10 @@ var (
 
 type Service struct {
 	userRepo *user.Repository
-	jwtCfg   *jwt.Config
+	jwtCfg   *config.JWTConfig
 }
 
-func NewService(userRepo *user.Repository, jwtCfg *jwt.Config) *Service {
+func NewService(userRepo *user.Repository, jwtCfg *config.JWTConfig) *Service {
 	return &Service{
 		userRepo: userRepo,
 		jwtCfg:   jwtCfg,

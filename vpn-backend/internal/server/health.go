@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vpn/backend/internal/wireguard"
 	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type HealthChecker struct {
@@ -118,8 +116,16 @@ func (h *HealthChecker) checkPort(host string, port int) bool {
 	return true
 }
 
+// PeerStats represents WireGuard peer statistics
+type PeerStats struct {
+	PeerCount       int       `json:"peer_count"`
+	TotalBytesRx    int64     `json:"total_bytes_rx"`
+	TotalBytesTx    int64     `json:"total_bytes_tx"`
+	LatestHandshake time.Time `json:"latest_handshake"`
+}
+
 // GetServerStats returns current peer stats for a server
-func (h *HealthChecker) GetServerStats(ctx context.Context, serverID uuid.UUID) (*wireguard.PeerStats, error) {
+func (h *HealthChecker) GetServerStats(ctx context.Context, serverID uuid.UUID) (*PeerStats, error) {
 	if h.wgClient == nil {
 		return nil, nil
 	}
@@ -140,7 +146,7 @@ func (h *HealthChecker) GetServerStats(ctx context.Context, serverID uuid.UUID) 
 		}
 	}
 
-	return &wireguard.PeerStats{
+	return &PeerStats{
 		PeerCount:       len(device.Peers),
 		TotalBytesRx:    totalRx,
 		TotalBytesTx:    totalTx,

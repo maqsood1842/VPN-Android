@@ -154,10 +154,9 @@ func (s *Service) addPeerToInterface(srv *server.Server, peer *Peer) error {
 	}
 
 	peerConfig := wgtypes.PeerConfig{
-		PublicKey:         pubKey,
-		PresharedKey:      &psk,
-		AllowedIPs:        allowedIPs,
-		PersistentKeepalive: &peer.PersistentKeepalive,
+		PublicKey:  pubKey,
+		PresharedKey: &psk,
+		AllowedIPs:   allowedIPs,
 	}
 
 	return s.wgClient.ConfigureDevice(WGInterface, wgtypes.Config{

@@ -16,8 +16,8 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	r.GET("/wireguard/config/:server_id", h.GetConfig)
-	r.GET("/wireguard/peers", h.ListPeers)
+	r.GET("/config/:server_id", h.GetConfig)
+	r.GET("/peers", h.ListPeers)
 }
 
 func (h *Handler) GetConfig(c *gin.Context) {

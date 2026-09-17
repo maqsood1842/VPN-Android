@@ -5,26 +5,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/vpn/backend/pkg/config"
 	"github.com/vpn/backend/pkg/jwt"
 )
 
 type Handler struct {
 	service *Service
-	jwtCfg  *jwt.Config
+	jwtCfg  *config.JWTConfig
 }
 
-func NewHandler(service *Service, jwtCfg *jwt.Config) *Handler {
+func NewHandler(service *Service, jwtCfg *config.JWTConfig) *Handler {
 	return &Handler{service: service, jwtCfg: jwtCfg}
 }
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	billing := r.Group("/billing")
-	billing.Use(h.authMiddleware())
-	{
-		billing.POST("/validate-purchase", h.ValidatePurchase)
-		billing.POST("/refresh-subscription", h.RefreshSubscription)
-		billing.GET("/status", h.GetSubscriptionStatus)
-	}
+	r.Use(h.authMiddleware())
+	r.POST("/validate-purchase", h.ValidatePurchase)
+	r.POST("/refresh-subscription", h.RefreshSubscription)
+	r.GET("/status", h.GetSubscriptionStatus)
 }
 
 func (h *Handler) ValidatePurchase(c *gin.Context) {
@@ -89,7 +87,7 @@ func (h *Handler) GetSubscriptionStatus(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
+	_, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
 		return

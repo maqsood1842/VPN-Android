@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/vpn/backend/internal/wireguard"
 )
 
 type Handler struct {
@@ -18,9 +17,9 @@ func NewHandler(repo *Repository, healthChecker *HealthChecker) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
-	r.GET("/servers", h.ListServers)
-	r.GET("/servers/:id", h.GetServer)
-	r.GET("/servers/:id/stats", h.GetServerStats)
+	r.GET("", h.ListServers)
+	r.GET("/:id", h.GetServer)
+	r.GET("/:id/stats", h.GetServerStats)
 }
 
 func (h *Handler) ListServers(c *gin.Context) {

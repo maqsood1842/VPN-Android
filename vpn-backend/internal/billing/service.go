@@ -58,12 +58,8 @@ func (s *Service) ValidateAndStorePurchase(ctx context.Context, userID uuid.UUID
 		}
 	}
 
-	// Parse expiry time
-	expiryTime, err := time.Parse("2006-01-02T15:04:05.000Z", purchase.ExpiryTimeMillis)
-	if err != nil {
-		// Try milliseconds since epoch
-		// expiryTime = time.UnixMilli(...)
-	}
+	// Parse expiry time (milliseconds since epoch)
+	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
 
 	// Create or update subscription record
 	sub := &subscription.Subscription{
@@ -115,7 +111,7 @@ func (s *Service) RefreshSubscriptionStatus(ctx context.Context, userID uuid.UUI
 	}
 
 	// Update expiry if extended
-	expiryTime, _ := time.Parse("2006-01-02T15:04:05.000Z", purchase.ExpiryTimeMillis)
+	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
 	sub.CurrentPeriodEnd = &expiryTime
 	sub.AutoRenew = purchase.AutoRenewing
 	sub.UpdatedAt = time.Now()

@@ -109,7 +109,7 @@ func (r *Repository) ListActive(ctx context.Context) ([]*Server, error) {
 
 func (r *Repository) UpdateLoad(ctx context.Context, id uuid.UUID, loadPercent int) error {
 	query := `UPDATE servers SET load_percent = $1, updated_at = NOW() WHERE id = $2`
-	err := r.db.Exec(ctx, query, loadPercent, id)
+	_, err := r.db.Exec(ctx, query, loadPercent, id)
 	if err == nil && r.redis != nil {
 		r.invalidateCache(ctx)
 		// Update health cache
@@ -120,7 +120,7 @@ func (r *Repository) UpdateLoad(ctx context.Context, id uuid.UUID, loadPercent i
 
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	query := `UPDATE servers SET status = $1, updated_at = NOW() WHERE id = $2`
-	err := r.db.Exec(ctx, query, status, id)
+	_, err := r.db.Exec(ctx, query, status, id)
 	if err == nil && r.redis != nil {
 		r.invalidateCache(ctx)
 		r.updateHealthCache(ctx, id, 0, status)
@@ -130,7 +130,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 
 func (r *Repository) UpdateHealth(ctx context.Context, id uuid.UUID, loadPercent int, status string, peerCount int) error {
 	query := `UPDATE servers SET load_percent = $1, status = $2, updated_at = NOW() WHERE id = $3`
-	err := r.db.Exec(ctx, query, loadPercent, status, id)
+	_, err := r.db.Exec(ctx, query, loadPercent, status, id)
 	if err == nil && r.redis != nil {
 		r.invalidateCache(ctx)
 		r.updateHealthCache(ctx, id, loadPercent, status)

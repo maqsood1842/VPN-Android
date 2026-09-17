@@ -41,13 +41,6 @@ type PeerConfig struct {
 	}
 }
 
-type PeerStats struct {
-	PeerCount       int       `json:"peer_count"`
-	TotalBytesRx    int64     `json:"total_bytes_rx"`
-	TotalBytesTx    int64     `json:"total_bytes_tx"`
-	LatestHandshake time.Time `json:"latest_handshake"`
-}
-
 type PeerRepository interface {
 	Create(ctx context.Context, p *Peer) error
 	GetByUserAndServer(ctx context.Context, userID, serverID uuid.UUID) (*Peer, error)
