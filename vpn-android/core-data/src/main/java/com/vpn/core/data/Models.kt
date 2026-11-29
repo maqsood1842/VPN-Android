@@ -1,21 +1,16 @@
 package com.vpn.core.data
 
-import kotlinx.serialization.Serializable
-
-@Serializable
 data class PeerConfig(
     val interface: InterfaceConfig,
     val peer: PeerConfigData
 )
 
-@Serializable
 data class InterfaceConfig(
     val privateKey: String,
     val address: List<String>,
     val dns: List<String>
 )
 
-@Serializable
 data class PeerConfigData(
     val publicKey: String,
     val presharedKey: String,
@@ -24,7 +19,6 @@ data class PeerConfigData(
     val persistentKeepalive: Int
 )
 
-@Serializable
 data class Server(
     val id: String,
     val name: String,

@@ -12,3 +12,11 @@ buildscript {
         gradlePluginPortal()
     }
 }
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
