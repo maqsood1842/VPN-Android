@@ -35,6 +35,13 @@ type ValidatePurchaseResponse struct {
 }
 
 func (s *Service) ValidateAndStorePurchase(ctx context.Context, userID uuid.UUID, req ValidatePurchaseRequest) (*ValidatePurchaseResponse, error) {
+	if s.validator == nil {
+		return &ValidatePurchaseResponse{
+			Success: false,
+			Error:   "Google Play validation not configured (missing credentials)",
+		}, nil
+	}
+
 	purchase, err := s.validator.ValidateSubscription(ctx, req.PurchaseToken)
 	if err != nil {
 		return &ValidatePurchaseResponse{
@@ -93,6 +100,10 @@ func (s *Service) ValidateAndStorePurchase(ctx context.Context, userID uuid.UUID
 }
 
 func (s *Service) RefreshSubscriptionStatus(ctx context.Context, userID uuid.UUID) error {
+	if s.validator == nil {
+		return fmt.Errorf("Google Play validation not configured (missing credentials)")
+	}
+
 	sub, err := s.subRepo.GetActiveByUserID(ctx, userID)
 	if err != nil {
 		return err
